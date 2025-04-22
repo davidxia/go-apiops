@@ -663,12 +663,16 @@ func Convert(content []byte, opts O2kOptions) (map[string]interface{}, error) {
 		return nil, err
 	}
 
+	for _, server := range docServers {
+		fmt.Printf("docServer: %+v\n", *server)
+	}
 	// create the top-level docService and (optional) docUpstream
 	docService, docUpstream, err = CreateKongService(docBaseName, docServers, docServiceDefaults,
 		docUpstreamDefaults, kongTags, opts.UUIDNamespace, opts.SkipID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create service/upstream from document root: %w", err)
 	}
+	fmt.Printf("docService: %+v\n", docService)
 	services = append(services, docService)
 	if docUpstream != nil {
 		upstreams = append(upstreams, docUpstream)
@@ -831,6 +835,7 @@ func Convert(content []byte, opts O2kOptions) (map[string]interface{}, error) {
 
 			pathService["plugins"] = pathPluginList
 
+			fmt.Printf("pathService: %+v\n", pathService)
 			services = append(services, pathService)
 			if pathUpstream != nil {
 				// we have a new upstream, but do we need it?
@@ -970,6 +975,7 @@ func Convert(content []byte, opts O2kOptions) (map[string]interface{}, error) {
 				if err != nil {
 					return nil, fmt.Errorf("failed to create service/updstream from operation '%s %s': %w", pathKey, methodKey, err)
 				}
+				fmt.Printf("operationService: %+v\n", operationService)
 				services = append(services, operationService)
 				if operationUpstream != nil {
 					// we have a new upstream, but do we need it?
@@ -1109,6 +1115,8 @@ func Convert(content []byte, opts O2kOptions) (map[string]interface{}, error) {
 	}
 
 	// export arrays with services, upstreams, and plugins to the final object
+	fmt.Printf("services: %+v\n", services)
+	fmt.Printf("upstreams: %+v\n", upstreams)
 	result["services"] = services
 	result["upstreams"] = upstreams
 	if len(*foreignKeyPlugins) > 0 {

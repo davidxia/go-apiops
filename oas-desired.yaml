@@ -1,0 +1,149 @@
+---
+openapi: 3.0.4
+
+info:
+  title: Hendrix AI Gateway
+  description: >
+    The AI Gateway standardizes access to various LLM providers, including OpenAI, Prism, and Deepseek models.
+    All models are accessed through a single endpoint with model selection determined by request headers.
+    If you want to use AI Gateway but haven't gone through our onboarding process, please ask @hendrix-goalies
+    in [#hendrix](https://spotify.enterprise.slack.com/archives/C4U8VJLRG).
+  version: 0.1.0
+
+
+servers:
+- url: https://hendrix-proxy.spotify.net/v1
+
+paths:
+  /chat/completions:
+    post:
+      operationId: createChatCompletion
+      description: Creates a model response for the given chat conversation.
+      security:
+      - spotify: []
+        openAIAuth: []
+      parameters:
+      - in: header
+        name: X-Hendrix-Model-Provider
+        description: The provider of the model to use.
+        required: true
+        schema:
+          type: string
+          enum:
+          - hendrix
+          - openai
+          - vertexai-gemini
+      - in: header
+        name: X-GCP-API-Endpoint
+        description: Required if using `vertexai-gemini` for the `X-Hendrix-Model-Provider` header. Must be in the form `LOCATION-aiplatform.googleapis.com` where `LOCATION` is a GCP location where the model you want is available. See https://cloud.google.com/vertex-ai/generative-ai/docs/learn/locations
+        required: false
+        schema:
+          type: string
+      - in: header
+        name: X-GCP-Location
+        description: Required if using `vertexai-gemini` for the `X-Hendrix-Model-Provider` header. The GCP location where the model you want is available. See https://cloud.google.com/vertex-ai/generative-ai/docs/learn/locations
+        required: true
+        schema:
+          type: string
+      - in: header
+        name: X-GCP-Project
+        description: Required if using `vertexai-gemini` for the `X-Hendrix-Model-Provider` header. The GCP project ID where Vertex AI API is enabled and your workload has the Vertex AI Platform Express User (`roles/aiplatform.expressUser`) IAM role or at least the IAM permission `aiplatform.endpoints.predict`.
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              # $ref: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml#/components/schemas/CreateChatCompletionRequest'
+              $ref: '#/components/schemas/HendrixCreateChatCompletionRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml#/components/schemas/CreateChatCompletionResponse'
+  /embeddings:
+    post:
+      operationId: createEmbeddings
+      description: Creates an embedding vector representing the input text.
+      security:
+      - spotify: []
+        openAIAuth: []
+      parameters:
+      - in: header
+        name: X-Hendrix-Model-Provider
+        required: true
+        schema:
+          type: string
+          enum:
+          - openai
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml#/components/schemas/CreateEmbeddingRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml#/components/schemas/CreateEmbeddingResponse'
+
+
+components:
+  schemas:
+    HendrixCreateChatCompletionRequest:
+      allOf:
+      - $ref: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml#/components/schemas/CreateChatCompletionRequest'
+      - type: object
+        properties:
+          model:
+            anyOf:
+            - type: string
+              enum:
+              # from https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/inference#supported-models
+              - gemini-2.0-flash-lite-001
+              - gemini-2.0-flash-001
+              # TODO (dxia): add all internal model names
+  securitySchemes:
+    spotify:
+      type: apiKey
+      description: OpenID Connect token for a Google Cloud Platform service account or static consumer key. Test with `gcloud auth print-identity-token --impersonate-service-account SOME_ACCOUNT@SOME_PROJECT.iam.gserviceaccount.com --audiences=http://hendrix-proxy --include-email`.
+      name: X-Spotify-Service-Identity
+      in: header
+    openAIAuth:
+      type: http
+      description: OpenAI API key
+      scheme: bearer
+    # doesn't work bc https://github.com/OpenAPITools/openapi-generator/issues/425
+    # spotify:
+    #   type: openIdConnect
+    #   description: Spotify Service Identity key
+    #   name: X-Spotify-Service-Identity
+    #   # in: header
+    #   # scheme: bearer
+    #   # flows:
+    #   #   authorizationCode:
+    #   #     authorizationUrl: https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/kong-ai-gateway-poc@gke-accounts.iam.gserviceaccount.com:generateAccessToken
+    #   openIdConnectUrl: https://example.com
+    #   # https://cloud.google.com/iam/docs/reference/credentials/rest/v1/projects.serviceAccounts/generateIdToken
+    #   # openIdConnectUrl: https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/kong-ai-gateway-poc@gke-accounts.iam.gserviceaccount.com:generateIdToken
+    #   # TODO (dxia): how to specify audience?
+
+
+
+# security:
+# - keyAuth: []
+# - spotify:
+#   - openid
+#   - https://www.googleapis.com/auth/cloud-platform
+#   - https://www.googleapis.com/auth/accounts.reauth
+#   - https://www.googleapis.com/auth/compute
+#   - https://www.googleapis.com/auth/appengine.admin
+#   - https://www.googleapis.com/auth/sqlservice.login
+#   - https://www.googleapis.com/auth/userinfo.email
